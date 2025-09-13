@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>棚卸しカウンター</title>
+  <style>
+    :root { --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#64748b; --accent:#10b981; --danger:#ef4444; --border:#e2e8f0;}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:860px;margin:0 auto;padding:16px}
+    .title{font-size:22px;font-weight:800;margin:4px 0 8px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:16px;margin-bottom:12px}
+    .row{display:flex;gap:10px;align-items:center;margin:8px 0}
+    .label{width:40%;text-align:right;font-weight:700}
+    .ctrl{flex:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input[type=number], input[type=text]{width:100%;font-size:18px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;outline:none}
+    input[type=number]:focus, input[type=text]:focus{border-color:var(--accent); box-shadow: 0 0 0 3px #a7f3d0}
+    .btn{padding:10px 12px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;font-weight:700;cursor:pointer}
+    .btn.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .muted{color:var(--muted);font-size:12px}
+    .pill{border:1px solid var(--border);border-radius:12px;padding:8px 12px;background:#fff}
+    .result{background:#ecfdf5;border:1px solid #bbf7d0;border-radius:16px;padding:16px}
+    .big{font-size:46px;font-weight:900}
+    .big2{font-size:28px;font-weight:800}
+    .breakdown{font-size:24px;font-weight:800;margin-top:6px;font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+    .footer{font-size:11px;color:#94a3b8;text-align:center;margin:16px 0}
+    .cs-row{display:grid;grid-template-columns:1.2fr 1fr auto;gap:8px;align-items:center;margin-top:6px}
+    .cs-row .btn{padding:8px 10px}
+    .hint{font-size:11px;color:#64748b}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">棚卸しカウンター</h1>
+
+    <!-- C/S -->
+    <div class="card">
+      <h2 class="big2">C/S</h2>
+      <div id="csList"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" id="addCs">＋ C/S行を追加</button>
+        <button class="btn danger" id="clearCs">C/Sを全クリア</button>
+      </div>
+      <div class="hint" style="margin-top:6px">単位＝1C/Sあたりの枚数、本数＝C/Sの数。</div>
+    </div>
+
+    <!-- 束 -->
+    <div class="card">
+      <h2 class="big2">束</h2>
+      <div class="row">
+        <div class="label">束単位（枚）</div>
+        <div class="ctrl">
+          <button class="btn" id="bundle500">500</button>
+          <button class="btn" id="bundle1000">1000</button>
+          <input id="bundleUnit" type="number" inputmode="numeric" placeholder="カスタム例: 250" min="1" style="max-width:160px">
+          <span class="muted">枚</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="label">束の数</div>
+        <div class="ctrl">
+          <input id="bundleCount" type="number" inputmode="numeric" placeholder="例: 10" min="0" value="0" style="max-width:200px">
+          <span class="muted">束</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 端数換算 -->
+    <div class="card">
+      <h2 class="big2">端数（厚み換算）</h2>
+      <div class="row">
+        <div class="label">基準束枚数</div>
+        <div class="ctrl">
+          <input id="refCount" type="number" inputmode="numeric" placeholder="束単位と同期" min="1" style="max-width:180px">
+          <span class="muted">※ 束単位を入力すると自動同期</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="label">基準束の厚み</div>
+        <div class="ctrl">
+          <input id="refThick" type="number" inputmode="decimal" step="0.01" placeholder="例: 62.5">
+          <span class="muted">mm</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="label">端数束の厚み</div>
+        <div class="ctrl">
+          <input id="fracThick" type="number" inputmode="decimal" step="0.01" placeholder="例: 12.7">
+          <span class="muted">mm</span>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="pill">
+          <div class="muted">1枚の厚み</div>
+          <div id="oneThick" class="big2">-</div>
+          <div class="muted">mm/枚</div>
+        </div>
+        <div class="pill">
+          <div class="muted">端数（計算値・四捨五入）</div>
+          <div id="fracCountCalc" class="big2">-</div>
+          <div class="muted">枚（合計に自動反映）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 合計 -->
+    <div class="card">
+      <h2 class="big2">合計</h2>
+      <div class="result">
+        <div class="muted">合計枚数</div>
+        <div class="big" id="grandTotal">-</div>
+        <div class="breakdown" id="breakdownText">内訳: -</div>
+      </div>
+      <div style="text-align:right;margin-top:8px">
+        <button class="btn danger" id="clearAll">全クリア</button>
+      </div>
+      <!-- hidden field to store fraction for logic -->
+      <input id="fractionCount" type="hidden" value="0">
+    </div>
+
+    <div class="footer">© 棚卸しカウンター</div>
+  </div>
+
+  <script>
+    (function(){
+      const $ = (id)=> document.getElementById(id);
+      const csList = $('csList');
+      const addCs = $('addCs'), clearCs = $('clearCs');
+
+      const bundle500 = $('bundle500'), bundle1000 = $('bundle1000');
+      const bundleUnit = $('bundleUnit'), bundleCount = $('bundleCount');
+
+      const refCount = $('refCount');
+      const refThick = $('refThick'), fracThick = $('fracThick');
+      const oneThick = $('oneThick'), fracCountCalc = $('fracCountCalc');
+      const hiddenFraction = $('fractionCount');
+
+      const grandTotal = $('grandTotal'), breakdownText = $('breakdownText');
+      const clearAll = $('clearAll');
+
+      const KEY = 'inventory-counter:v5';
+
+      // C/S rows
+      function csRowTemplate(unit='', count=''){
+        const div = document.createElement('div');
+        div.className = 'cs-row';
+        div.innerHTML = `
+          <input class="csUnit" type="number" inputmode="numeric" placeholder="単位（例: 20000）" min="1" value="${unit}">
+          <input class="csCount" type="number" inputmode="numeric" placeholder="C/Sの数（例: 5）" min="0" value="${count}">
+          <button class="btn danger csDel">削除</button>
+        `;
+        div.querySelector('.csUnit').addEventListener('input', onAnyChange);
+        div.querySelector('.csCount').addEventListener('input', onAnyChange);
+        div.querySelector('.csDel').addEventListener('click', ()=>{ div.remove(); save(); recalcAll(); });
+        return div;
+      }
+      function addCsRow(unit='', count=''){ csList.appendChild(csRowTemplate(unit, count)); }
+
+      addCs.addEventListener('click', ()=> addCsRow());
+      clearCs.addEventListener('click', ()=> { csList.innerHTML=''; save(); recalcAll(); });
+
+      // Bundle unit presets + auto-sync to refCount
+      function setBundleUnit(val){
+        [bundle500,bundle1000].forEach(b=> b.classList.remove('sel'));
+        if (val === 500) bundle500.classList.add('sel');
+        if (val === 1000) bundle1000.classList.add('sel');
+        bundleUnit.value = String(val);
+        refCount.value = String(val);
+      }
+      bundle500.addEventListener('click', ()=> { setBundleUnit(500); onAnyChange(); });
+      bundle1000.addEventListener('click', ()=> { setBundleUnit(1000); onAnyChange(); });
+      bundleUnit.addEventListener('input', ()=> {
+        const u = parseInt(bundleUnit.value,10);
+        [bundle500,bundle1000].forEach(b=> b.classList.remove('sel'));
+        if (u === 500) bundle500.classList.add('sel');
+        if (u === 1000) bundle1000.classList.add('sel');
+        if (isFinite(u) && u>0) refCount.value = String(u);
+        onAnyChange();
+      });
+
+      // Fraction calc
+      function calcFraction(){
+        const rC = parseInt(refCount.value,10);
+        const rT = parseFloat(refThick.value);
+        const fT = parseFloat(fracThick.value);
+
+        const one = (isFinite(rC) && rC>0 && isFinite(rT) && rT>0) ? (rT / rC) : NaN;
+        oneThick.textContent = isFinite(one) ? one.toFixed(3) : '-';
+
+        const raw = (isFinite(one) && isFinite(fT) && fT>=0) ? (fT / one) : NaN;
+        const rounded = isFinite(raw) ? Math.round(raw) : NaN;
+        fracCountCalc.textContent = isFinite(rounded) ? String(rounded) + ' 枚' : '-';
+        hiddenFraction.value = isFinite(rounded) ? String(rounded) : '0';
+      }
+
+      // Total & breakdown
+      function getCsRowsData(){
+        return Array.from(csList.querySelectorAll('.cs-row')).map(r=>{
+          const u = parseInt(r.querySelector('.csUnit').value,10);
+          const c = parseInt(r.querySelector('.csCount').value,10);
+          return {u, c};
+        }).filter(x=> isFinite(x.u) && x.u>0 && isFinite(x.c) && x.c>0);
+      }
+
+      function recalcAll(){
+        const csData = getCsRowsData();
+        const csTotal = csData.reduce((s,x)=> s + x.u * x.c, 0);
+
+        const bU = parseInt(bundleUnit.value,10);
+        const bN = parseInt(bundleCount.value,10);
+        const bTotal = (isFinite(bU) && isFinite(bN) && bU>0 && bN>=0) ? bU * bN : 0;
+
+        const fN = parseInt(hiddenFraction.value,10) || 0;
+
+        const total = csTotal + bTotal + fN;
+        grandTotal.textContent = isFinite(total) ? total.toLocaleString('ja-JP') + ' 枚' : '-';
+
+        const segs = [];
+        csData.forEach(x=> segs.push(`${x.u}×${x.c}C/S`));
+        if (isFinite(bU) && isFinite(bN) && bU>0 && bN>0) segs.push(`${bU}×${bN}束`);
+        if (fN>0) segs.push(`${fN}枚`);  // fraction shows 枚
+        breakdownText.textContent = segs.length ? `内訳: ${segs.join(' + ')}` : '内訳: -';
+
+        save();
+      }
+
+      function onAnyChange(){ calcFraction(); recalcAll(); }
+
+      // Clear All
+      clearAll.addEventListener('click', ()=> {
+        csList.innerHTML='';
+        bundleUnit.value=''; bundleCount.value='0';
+        refCount.value=''; refThick.value=''; fracThick.value='';
+        hiddenFraction.value='0';
+        [bundle500,bundle1000].forEach(b=> b.classList.remove('sel'));
+        addCsRow();
+        save(); calcFraction(); recalcAll();
+      });
+
+      // Persist
+      function save(){
+        const data = {
+          cs: Array.from(csList.querySelectorAll('.cs-row')).map(r=> ({
+            u: r.querySelector('.csUnit').value,
+            c: r.querySelector('.csCount').value
+          })),
+          bundleUnit: bundleUnit.value,
+          bundleCount: bundleCount.value,
+          refCount: refCount.value,
+          refThick: refThick.value,
+          fracThick: fracThick.value,
+          fractionCount: hiddenFraction.value
+        };
+        try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
+      }
+      function restore(){
+        try {
+          const d = JSON.parse(localStorage.getItem(KEY) || '{}');
+          csList.innerHTML='';
+          if (Array.isArray(d.cs) && d.cs.length) d.cs.forEach(x=> addCsRow(x.u ?? '', x.c ?? ''));
+          else addCsRow();
+          if (d.bundleUnit !== undefined) bundleUnit.value = d.bundleUnit;
+          if (d.bundleCount !== undefined) bundleCount.value = d.bundleCount;
+          if (d.refCount !== undefined) refCount.value = d.refCount;
+          if (d.refThick !== undefined) refThick.value = d.refThick;
+          if (d.fracThick !== undefined) fracThick.value = d.fracThick;
+          if (d.fractionCount !== undefined) hiddenFraction.value = d.fractionCount;
+          [bundle500,bundle1000].forEach(b=> b.classList.remove('sel'));
+          if (Number(bundleUnit.value) === 500) bundle500.classList.add('sel');
+          if (Number(bundleUnit.value) === 1000) bundle1000.classList.add('sel');
+        } catch { csList.innerHTML=''; addCsRow(); }
+      }
+
+      // Init
+      restore();
+      if (!csList.children.length) addCsRow();
+      calcFraction();
+      recalcAll();
+
+    })();
+  </script>
+</body>
+</html>
