@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>ラベルカウンター</title>
+  <style>
+    :root { --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#64748b; --accent:#10b981; --danger:#ef4444; --border:#e2e8f0;}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    html{ scroll-behavior: smooth; }
+    .wrap{max-width:860px;margin:0 auto;padding:16px}
+    .title{font-size:22px;font-weight:800;margin:4px 0 8px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04);padding:16px;margin-bottom:12px}
+    .row{display:flex;gap:10px;align-items:center;margin:8px 0}
+    .label{width:40%;text-align:right;font-weight:700}
+    .ctrl{flex:1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    input[type=number], input[type=text]{width:100%;font-size:18px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;outline:none}
+    input[type=number]:focus, input[type=text]:focus{border-color:var(--accent); box-shadow: 0 0 0 3px #a7f3d0}
+    .btn{padding:12px 14px;border-radius:14px;border:1px solid #cbd5e1;background:#fff;font-weight:800;cursor:pointer}
+    .btn.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .muted{color:var(--muted);font-size:12px}
+    .pill{border:1px solid var(--border);border-radius:12px;padding:8px 12px;background:#fff}
+    .result{background:#ecfdf5;border:1px solid #bbf7d0;border-radius:16px;padding:16px; outline:none}
+    .big{font-size:46px;font-weight:900}
+    .big2{font-size:28px;font-weight:800}
+    .breakdown{font-size:24px;font-weight:800;margin-top:6px;font-family: ui-monospace,Consolas,monospace}
+    .footer{font-size:11px;color:#94a3b8;text-align:center;margin:16px 0; position:relative}
+    .ver{position:absolute; right:0; bottom:-2px; font-size:10px; color:#94a3b8}
+    .cs-row{display:grid;grid-template-columns:1.2fr 1fr auto;gap:8px;align-items:center;margin-top:6px}
+    .frac-row{display:grid;grid-template-columns:1fr 0.8fr auto;gap:8px;align-items:center;margin-top:6px}
+    .cs-row .btn,.frac-row .btn{padding:8px 10px}
+    .hint{font-size:11px;color:#64748b}
+    @media (max-width: 480px){
+      .btn.quick{min-width: 96px; min-height: 48px; font-size: 20px; padding: 12px 16px; border-radius: 16px;}
+      .label{width:38%}
+      .big{font-size:42px}
+      .big2{font-size:26px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">ラベルカウンター</h1>
+
+    <!-- C/S -->
+    <div class="card">
+      <h2 class="big2">C/S</h2>
+      <div id="csList"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" id="addCs">＋ C/S行を追加</button>
+        <button class="btn danger" id="clearCs">C/Sを全クリア</button>
+      </div>
+      <div class="hint" style="margin-top:6px">単位＝1C/Sあたりの枚数、本数＝C/Sの数。</div>
+    </div>
+
+    <!-- 束 -->
+    <div class="card">
+      <h2 class="big2">束</h2>
+      <div class="row">
+        <div class="label">束単位</div>
+        <div class="ctrl">
+          <button class="btn quick" id="bundle500">500枚</button>
+          <button class="btn quick" id="bundle1000">1000枚</button>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:6px; margin-left:40%">※500枚 または 1000枚 を選択してください</div>
+      <div class="row">
+        <div class="label">束の数</div>
+        <div class="ctrl">
+          <input id="bundleCount" type="number" inputmode="numeric" placeholder="例: 10" min="0" style="max-width:200px">
+          <span class="muted">束</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 端数換算（複数） -->
+    <div class="card">
+      <h2 class="big2">端数（厚み換算）</h2>
+      <div class="hint">※ 1枚の厚み <strong>0.08</strong> mm/枚（固定）</div>
+
+      <div id="fracList"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" id="addFrac">＋ 端数束を追加</button>
+        <button class="btn danger" id="clearFrac">端数束を全クリア</button>
+      </div>
+
+      <div class="grid2" style="margin-top:10px">
+        <div class="pill">
+          <div class="muted">端数（計算値・四捨五入の合計）</div>
+          <div id="fracCountCalc" class="big2">-</div>
+          <div class="muted" id="fracFormula" style="min-height:1.2em;"></div>
+        </div>
+        <div class="pill">
+          <div class="muted">端数（任意・手入力）</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input id="customFrac" type="number" inputmode="numeric" placeholder="余りの枚数を手入力" min="0" style="max-width:200px">
+            <span class="muted">枚</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 合計 -->
+    <div class="card">
+      <h2 class="big2">合計</h2>
+      <div class="result" id="resultBox" tabindex="0">
+        <div class="muted">合計枚数</div>
+        <div class="big" id="grandTotal">-</div>
+        <div class="breakdown" id="breakdownText">内訳: -</div>
+      </div>
+      <div style="text-align:right;margin-top:8px">
+        <button class="btn danger" id="clearAll">全クリア</button>
+      </div>
+    </div>
+
+    <div class="footer">
+      © ラベルカウンター <span class="ver">v22</span>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const $ = id => document.getElementById(id);
+      const PER_SHEET = 0.08; // mm/枚（固定）
+
+      // Elements
+      const csList = $('csList'), addCs = $('addCs'), clearCs = $('clearCs');
+      const bundle500 = $('bundle500'), bundle1000 = $('bundle1000'), bundleCount = $('bundleCount');
+      const fracList = $('fracList'), addFrac = $('addFrac'), clearFrac = $('clearFrac');
+      const fracCountCalc = $('fracCountCalc'), fracFormula = $('fracFormula');
+      const customFrac = $('customFrac');
+      const grandTotal = $('grandTotal'), breakdownText = $('breakdownText');
+      const clearAll = $('clearAll'), resultBox = $('resultBox');
+
+      function smoothFocus(el){
+        if (!el) return;
+        el.focus({preventScroll:true});
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          try{
+            el.scrollIntoView({behavior:'smooth', block:'center'});
+          }catch{
+            const r = el.getBoundingClientRect();
+            const y = r.top + window.pageYOffset - (window.innerHeight/2 - r.height/2);
+            window.scrollTo({top:y, behavior:'smooth'});
+          }
+        }));
+      }
+
+      // ==== C/S ====
+      function csRowTemplate(unit='', count=''){
+        const div=document.createElement('div');
+        div.className='cs-row';
+        div.innerHTML=`
+          <input class="csUnit" type="number" inputmode="numeric" placeholder="単位(例:20000)" min="1" value="${unit}">
+          <input class="csCount" type="number" inputmode="numeric" placeholder="C/S数(例:5)" min="0" value="${count}">
+          <button class="btn danger csDel">削除</button>
+        `;
+        const u=div.querySelector('.csUnit'), c=div.querySelector('.csCount'), d=div.querySelector('.csDel');
+        u.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();smoothFocus(c);} });
+        c.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();smoothFocus(bundle500);} });
+        [u,c].forEach(el=> el.addEventListener('input', recalcAll));
+        d.addEventListener('click',()=>{ div.remove(); recalcAll(); });
+        return div;
+      }
+      function addCsRow(u='',c=''){ csList.appendChild(csRowTemplate(u,c)); }
+
+      addCs.addEventListener('click',()=>{ addCsRow(); smoothFocus(csList.querySelector('.cs-row:last-child .csUnit')); });
+      clearCs.addEventListener('click',()=>{ csList.innerHTML=''; recalcAll(); });
+
+      // ==== 束 ====
+      function setBundle(unit){
+        [bundle500,bundle1000].forEach(b=>b.classList.remove('sel'));
+        if(unit===500) bundle500.classList.add('sel'); else if(unit===1000) bundle1000.classList.add('sel');
+        recalcAll();
+        smoothFocus(bundleCount);
+      }
+      bundle500.addEventListener('click',()=> setBundle(500));
+      bundle1000.addEventListener('click',()=> setBundle(1000));
+      bundleCount.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();
+        if(!fracList.children.length) { addFracRow(); }
+        smoothFocus(fracList.querySelector('.frac-row:last-child .fracThick'));
+      }});
+      bundleCount.addEventListener('input', recalcAll);
+
+      // ==== 端数束（複数） ====
+      function fracRowTemplate(thick=''){
+        const div=document.createElement('div');
+        div.className='frac-row';
+        div.innerHTML=`
+          <input class="fracThick" type="number" inputmode="decimal" step="0.01" placeholder="端数束の厚み (mm)" value="${thick}">
+          <div class="muted fracCountView">- 枚</div>
+          <button class="btn danger fracDel">削除</button>
+        `;
+        const t=div.querySelector('.fracThick');
+        const v=div.querySelector('.fracCountView');
+        const d=div.querySelector('.fracDel');
+        t.addEventListener('input', ()=>{ updateFracRow(div); recalcAll(); });
+        t.addEventListener('keydown', e=>{
+          if(e.key==='Enter'){ e.preventDefault();
+            const rows = Array.from(fracList.querySelectorAll('.frac-row'));
+            const idx = rows.indexOf(div);
+            if(idx < rows.length-1){
+              smoothFocus(rows[idx+1].querySelector('.fracThick'));
+            }else{
+              smoothFocus(customFrac);
+            }
+          }
+        });
+        d.addEventListener('click', ()=>{ div.remove(); recalcAll(); });
+        updateFracRow(div);
+        return div;
+      }
+      function addFracRow(val=''){ fracList.appendChild(fracRowTemplate(val)); }
+      function updateFracRow(div){
+        const t = parseFloat(div.querySelector('.fracThick').value);
+        const v = div.querySelector('.fracCountView');
+        if(isFinite(t) && t>=0){
+          const cnt = Math.round(t / PER_SHEET);
+          v.textContent = `${cnt} 枚`;
+          div.dataset.count = String(cnt);
+        }else{
+          v.textContent = '- 枚';
+          delete div.dataset.count;
+        }
+      }
+      addFrac.addEventListener('click',()=>{ addFracRow(); smoothFocus(fracList.querySelector('.frac-row:last-child .fracThick')); });
+      clearFrac.addEventListener('click',()=>{ fracList.innerHTML=''; recalcAll(); });
+      customFrac.addEventListener('input', recalcAll);
+      customFrac.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); smoothFocus(resultBox); }});
+
+      function getFracCounts(){
+        return Array.from(fracList.querySelectorAll('.frac-row'))
+          .map(r=> parseInt(r.dataset.count,10))
+          .filter(n=> Number.isFinite(n));
+      }
+
+      // ==== 計算 ====
+      function getCsTotal(){
+        return Array.from(csList.querySelectorAll('.cs-row')).reduce((s,r)=>{
+          const u=parseInt(r.querySelector('.csUnit').value,10);
+          const c=parseInt(r.querySelector('.csCount').value,10);
+          return s + (isFinite(u)&&isFinite(c)? u*c : 0);
+        },0);
+      }
+      function getBundleTotal(){
+        const u = (bundle500.classList.contains('sel')?500: (bundle1000.classList.contains('sel')?1000:0));
+        const n = parseInt(bundleCount.value,10);
+        return (u>0 && isFinite(n) && n>0) ? u*n : 0;
+      }
+
+      function recalcAll(){
+        const csTotal = getCsTotal();
+        const bTotal  = getBundleTotal();
+        const counts  = getFracCounts();
+        const fCalc   = counts.reduce((a,b)=>a+b,0);
+        const fCustom = parseInt(customFrac.value,10) || 0;
+        const fN      = fCalc + fCustom;
+
+        // 端数の表示（式つき）
+        if (counts.length === 0) {
+          fracCountCalc.textContent = '-';
+          fracFormula.textContent = '';
+        } else if (counts.length === 1) {
+          fracCountCalc.textContent = String(fCalc);
+          fracFormula.textContent = '';
+        } else {
+          fracCountCalc.textContent = String(fCalc);
+          fracFormula.textContent = counts.join(' + ') + ' = ' + fCalc;
+        }
+
+        const total = csTotal + bTotal + fN;
+        grandTotal.textContent = total ? total.toLocaleString('ja-JP') + ' 枚' : '-';
+
+        const segs=[];
+        Array.from(csList.querySelectorAll('.cs-row')).forEach(r=>{
+          const u=r.querySelector('.csUnit').value, c=r.querySelector('.csCount').value;
+          if(u && c) segs.push(`${u}×${c}C/S`);
+        });
+        if (bTotal){
+          const uSel = (bundle500.classList.contains('sel')?500:1000);
+          const n = parseInt(bundleCount.value,10)||0;
+          if (n>0) segs.push(`${uSel}×${n}束`);
+        }
+        if (fN>0) segs.push(`${fN}枚`);
+        breakdownText.textContent = segs.length ? `内訳: ${segs.join(' + ')}` : '内訳: -';
+      }
+
+      // ==== 全クリア ====
+      clearAll.addEventListener('click', ()=>{
+        csList.innerHTML=''; addCsRow();
+        [bundle500,bundle1000].forEach(b=> b.classList.remove('sel'));
+        bundleCount.value='';
+        fracList.innerHTML='';
+        // 最初から1行は出しておく
+        addFracRow();
+        customFrac.value='';
+        recalcAll();
+        window.scrollTo({top:0,behavior:'smooth'});
+        smoothFocus(csList.querySelector('.cs-row .csUnit'));
+      });
+
+      // init
+      addCsRow();
+      addFracRow(); // ★ 最初から端数束の入力行を1行表示
+      recalcAll();
+    })();
+  </script>
+</body>
+</html>
